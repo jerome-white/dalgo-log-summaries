@@ -1,0 +1,4 @@
+Has an error occured in this run?
+What problems did the DBT pipeline face?
+Why might these problems have occurred?
+What steps can I take to solve these problems?
