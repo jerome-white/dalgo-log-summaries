@@ -26,11 +26,13 @@ for l in $logs/*; do
 	    o_name=`basename $f`.json.gz
 
 	    mkdir --parents $o_path
-	    python log-chat.py \
-		   --log-file $REPLY \
-		   --user-flow $f \
-		   --system-prompt $s_prompt \
-		| gzip --to-stdout > $o_path/$o_name
+	    cat <<EOF
+python log-chat.py \
+       --log-file $REPLY \
+       --user-flow $f \
+       --system-prompt $s_prompt \
+    | gzip --to-stdout > $o_path/$o_name
+EOF
 	done
     done
-done
+done | parallel --will-cite --line-buffer --delay 30 --retries 5
