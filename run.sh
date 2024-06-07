@@ -21,8 +21,8 @@ for l in $logs/*; do
     find $l -name "*$suffix" \
 	| while read; do
 	name=`realpath --relative-to=$logs $REPLY`
+	o_path=$ROOT/summary/`dirname $name`/`basename --suffix=$suffix $name`
 	for f in $ROOT/prompts/user-flows/*; do
-	    o_path=$ROOT/summary/$name/`basename --suffix=.json $l`
 	    o_name=`basename $f`.json.gz
 	    cat <<EOF
 mkdir --parents $o_path && \
