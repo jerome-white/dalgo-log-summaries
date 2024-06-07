@@ -82,7 +82,7 @@ class FileAssistant:
             Logger.error('%s (%d): %s', run.status, i + 1, run.last_error)
 
             rest = math.ceil(self.parse_wait_time(run.last_error))
-            Logger.warning('Sleeping %fs', rest)
+            Logger.warning('Sleeping %ds', rest)
             time.sleep(rest)
 
         messages = self.client.beta.threads.messages.list(
