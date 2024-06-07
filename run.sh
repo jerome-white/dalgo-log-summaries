@@ -24,14 +24,13 @@ for l in $logs/*; do
 	for f in $ROOT/prompts/user-flows/*; do
 	    o_path=$ROOT/summary/$name/`basename --suffix=.json $l`
 	    o_name=`basename $f`.json.gz
-
-	    mkdir --parents $o_path
 	    cat <<EOF
-python log-chat.py \
-       --log-file $REPLY \
-       --user-flow $f \
-       --system-prompt $s_prompt \
-    | gzip --to-stdout > $o_path/$o_name
+mkdir --parents $o_path && \
+    python $ROOT/log-chat.py \
+	   --log-file $REPLY \
+	   --user-flow $f \
+	   --system-prompt $s_prompt \
+	| gzip --to-stdout > $o_path/$o_name
 EOF
 	done
     done
