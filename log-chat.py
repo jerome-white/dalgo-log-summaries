@@ -1,11 +1,12 @@
 import sys
 import json
-import logging
 from string import Template
 from pathlib import Path
 from argparse import ArgumentParser
 
 from openai import OpenAI
+
+from mylib import Logger
 
 class Messenger:
     def __init__(self, model):
