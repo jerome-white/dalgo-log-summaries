@@ -30,24 +30,31 @@ class Messenger:
 
         return message.message.content
 
+def sysmsg(system, log):
+    (s, l) = (x.read_text() for x in (system, log))
+    message = Template(s)
+    return message.substitute(log=l)
+
 if __name__ == '__main__':
     arguments = ArgumentParser()
     arguments.add_argument('--model', default='gpt-4o')
+    arguments.add_argument('--output', type=Path)
     arguments.add_argument('--log-file', type=Path)
-    arguments.add_argument('--user-prompt', type=Path)
+    arguments.add_argument('--user-flow', type=Path)
     arguments.add_argument('--system-prompt', type=Path)
     args = arguments.parse_args()
 
-    messenger = Messenger(args.model)
+    content = sysmsg(args.system_prompt, args.log_file)
 
-    prompts = (x.read_text() for x in (args.system_prompt, args.log_file))
-    content = '\n\n'.join(prompts)
+    messenger = Messenger(args.model)
     messenger.push('system', content)
 
-    with args.user_prompt.open() as fp:
+    with args.user_flow.open() as fp:
         for (i, line) in enumerate(fp):
-            logging.warning(i)
+            Logger.info(i)
+            output = args.output.joinpath(f'{i:03}')
+
             messenger.push('user', line.strip())
             content = messenger.send()
-            print('#' * 70, content, sep='\n', end='\n\n')
+            output.write_text(content)
             messenger.push('assistant', content)
