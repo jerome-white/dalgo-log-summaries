@@ -42,7 +42,7 @@ class FileAssistant:
         self.retries = retries
 
         with log_file.open('rb') as fp:
-            self.file_id = self.client.files.create(
+            self.document = self.client.files.create(
                 file=fp,
                 purpose='assistants',
             )
@@ -58,6 +58,7 @@ class FileAssistant:
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
+        self.client.files.delete(self.document.id)
         self.client.beta.threads.delete(self.thread.id)
         self.client.beta.assistants.delete(self.assistant.id)
 
@@ -68,7 +69,7 @@ class FileAssistant:
             content=content,
             attachments=[{
                 'tools': self._tools,
-                'file_id': self.file_id.id,
+                'file_id': self.document.id,
             }],
         )
 
