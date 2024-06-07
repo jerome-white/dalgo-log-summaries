@@ -1,7 +1,6 @@
+import math
 import time
 import json
-import random
-from string import Template
 from pathlib import Path
 from argparse import ArgumentParser
 
@@ -82,9 +81,8 @@ class FileAssistant:
                 break
             Logger.error('%s (%d): %s', run.status, i + 1, run.last_error)
 
-            rest = self.parse_wait_time(run.last_error)
-            rest *= 1 + random.uniform(0.01, 0.1)
-            Logger.warning('Sleeping %f', rest)
+            rest = math.ceil(self.parse_wait_time(run.last_error))
+            Logger.warning('Sleeping %fs', rest)
             time.sleep(rest)
 
         messages = self.client.beta.threads.messages.list(
