@@ -80,7 +80,7 @@ class FileAssistant:
             )
             if run.status == 'completed':
                 break
-            Logger.error('%s (%d): %s', i + 1, run.status, run.last_error)
+            Logger.error('%s (%d): %s', run.status, i + 1, run.last_error)
 
             rest = self.parse_wait_time(run.last_error)
             rest *= 1 + random.uniform(0.01, 0.1)
