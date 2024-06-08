@@ -21,6 +21,9 @@ class AssistantMessage:
     def __str__(self):
         return '\n\n'.join(self)
 
+    def to_string(self):
+        return str(self)
+
 class FileAssistant:
     _tools = [{
         'type': 'file_search',
@@ -114,10 +117,13 @@ def chat(args):
                        args.retries) as fa:
         for (i, line) in enumerate(interact(args.user_prompt)):
             Logger.info('%s: %s', i, line)
-            response = fa.query(line)
+            response = (fa
+                        .query(line)
+                        .to_string())
+
             yield {
                 'prompt': line,
-                'response': str(response),
+                'response': response,
             }
 
 if __name__ == '__main__':
