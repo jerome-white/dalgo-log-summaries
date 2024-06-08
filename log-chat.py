@@ -5,6 +5,7 @@ import functools as ft
 from pathlib import Path
 from argparse import ArgumentParser
 
+import pandas as pd
 from openai import OpenAI
 
 from mylib import Logger
@@ -31,9 +32,10 @@ class FileAssistant:
         if err.code == 'rate_limit_exceeded':
             for i in err.message.split('. '):
                 if i.startswith('Please try again in'):
-                    (*_, seconds) = i.split()
-                    assert seconds.endswith('s')
-                    return float(seconds[:-1])
+                    (*_, wait) = i.split()
+                    return (pd
+                            .to_timedelta(wait)
+                            .total_seconds())
 
         raise TypeError(err.code)
 
