@@ -1,6 +1,7 @@
 import math
 import time
 import json
+import functools as ft
 from pathlib import Path
 from argparse import ArgumentParser
 
@@ -95,6 +96,22 @@ class FileAssistant:
         )
 
         return AssistantMessage(messages)
+
+#
+#
+#
+class ChatEncoder(json.JSONEncoder):
+    @ft.singledispatchmethod
+    def default(self, obj):
+        return super().default(obj)
+
+    @default.register
+    def _(self, obj: Path):
+        return str(obj)
+
+    @default.register
+    def _(self, obj: AssistantMessage):
+        return str(obj)
 
 #
 #
