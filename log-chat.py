@@ -3,6 +3,7 @@ import time
 import json
 from pathlib import Path
 from argparse import ArgumentParser
+from dataclasses import dataclass, asdict
 
 import pandas as pd
 from openai import OpenAI
@@ -104,6 +105,11 @@ class FileAssistant:
 #
 #
 #
+@dataclass
+class ChatResponse:
+    prompt: str
+    response: str
+
 def interact(flow):
     with flow.open() as fp:
         for line in fp:
@@ -115,16 +121,12 @@ def chat(args):
                        instructions,
                        args.model,
                        args.retries) as fa:
-        for (i, line) in enumerate(interact(args.user_prompt)):
-            Logger.info('%s: %s', i, line)
+        for (i, prompt) in enumerate(interact(args.user_prompt)):
+            Logger.info('%s: %s', i, prompt)
             response = (fa
-                        .query(line)
+                        .query(prompt)
                         .to_string())
-
-            yield {
-                'prompt': line,
-                'response': response,
-            }
+            yield ChatResponse(prompt, response)
 
 if __name__ == '__main__':
     arguments = ArgumentParser()
@@ -140,7 +142,7 @@ if __name__ == '__main__':
         'log': str(args.log_file),
         'model': args.model,
         'instructions': args.system_prompt.read_text(),
-        'dialogue': list(chat(args)),
+        'dialogue': list(map(asdict, chat(args))),
     }
 
     print(json.dumps(result, indent=2))
