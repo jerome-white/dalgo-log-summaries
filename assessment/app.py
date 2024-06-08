@@ -1,11 +1,13 @@
 import os
-import csv
+# import csv
+import gzip
+import json
 import string
 import random
-import itertools as it
 import functools as ft
 from pathlib import Path
-from tempfile import NamedTemporaryFile
+from dataclasses import dataclass
+# from tempfile import NamedTemporaryFile
 
 import flask as fl
 from flask_httpauth import HTTPBasicAuth
@@ -24,8 +26,7 @@ def whitespacing():
 
     return ws
 
-def to_html(path):
-    text = path.read_text()
+def to_html(text):
     for i in whitespacing().items():
         text = text.replace(*i)
 
@@ -43,7 +44,7 @@ class JudgementDropdown:
         4: 'Unsure',
     }
 
-    @ft.cache_property
+    @ft.cached_property
     def options(self):
         return '\n'.join(self)
 
@@ -67,8 +68,11 @@ class DalgoLog:
         return str(self.name)
 
     def load(self):
-        path = self.root.joinpath(self.name)
-        return to_html(path.read_text())
+        text = (self
+                .root
+                .joinpath(self.name)
+                .read_text())
+        return to_html(text)
 
 #
 #
@@ -88,7 +92,7 @@ class Response:
             data = fp.read().decode('utf-8')
 
         dropdown = JudgementDropdown()
-        for i json.loads(data):
+        for i in json.loads(data):
             yield Interaction(
                 i['prompt'],
                 to_html(i['response']),
@@ -104,7 +108,7 @@ class ResponsePicker:
         self.path = path
 
     def __iter__(self):
-        yield from map(ResponseSummary, self.path.rglob('*.json.gz'))
+        yield from map(Response, self.path.rglob('*.json.gz'))
 
     def pick(self):
         return random.choice(self.logs)
@@ -114,12 +118,12 @@ class ResponsePicker:
 #
 @auth.verify_password
 def verify_password(username, password):
-    auth = (
+    params = (
         ('username', username),
         ('password', password),
     )
 
-    return all(os.getenv(f'DALGO_{x.upper()}') == y for (x, y) in auth)
+    return all(os.getenv(f'DALGO_{x.upper()}') == y for (x, y) in params)
 
 @app.route('/')
 @auth.login_required
@@ -130,10 +134,14 @@ def index():
 
     picker = ResponsePicker(d_summaries)
     response = picker.pick()
-    log_name = response.path.relative_to(d_summaries)
+    log_name = (response
+                .path
+                .parent
+                .relative_to(d_summaries)
+                .with_suffix('.json'))
 
     log = DalgoLog(d_logs, log_name)
-    response = PromptResponse(summary, log)
+    # response = PromptResponse(summary, log)
 
     return fl.render_template(
         'base.html',
