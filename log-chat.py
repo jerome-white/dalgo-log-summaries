@@ -1,7 +1,6 @@
 import math
 import time
 import json
-import functools as ft
 from pathlib import Path
 from argparse import ArgumentParser
 
@@ -102,22 +101,6 @@ class FileAssistant:
 #
 #
 #
-class ChatEncoder(json.JSONEncoder):
-    @ft.singledispatchmethod
-    def default(self, obj):
-        return super().default(obj)
-
-    @default.register
-    def _(self, obj: Path):
-        return str(obj)
-
-    @default.register
-    def _(self, obj: AssistantMessage):
-        return str(obj)
-
-#
-#
-#
 def interact(flow):
     with flow.open() as fp:
         for line in fp:
@@ -134,7 +117,7 @@ def chat(args):
             response = fa.query(line)
             yield {
                 'prompt': line,
-                'response': response,
+                'response': str(response),
             }
 
 if __name__ == '__main__':
@@ -148,10 +131,10 @@ if __name__ == '__main__':
 
     Logger.info(args.log_file)
     result = {
-        'log': args.log_file,
+        'log': str(args.log_file),
         'model': args.model,
         'instructions': args.system_prompt.read_text(),
         'dialogue': list(chat(args)),
     }
 
-    print(json.dumps(result, indent=2, cls=ChatEncoder))
+    print(json.dumps(result, indent=2))
