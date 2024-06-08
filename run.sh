@@ -12,26 +12,18 @@ logs=$HOME/etc/dalgo/logs
 suffix=.json
 
 for l in $logs/*; do
-    case `basename $l` in
-	airbyte) s_prompt=$ROOT/prompts/system/airbyte ;;
-	prefect) s_prompt=$ROOT/prompts/system/dbt ;;
-	*) continue ;;
-    esac
-
+    prompts=$ROOT/prompts/`basename $l`
     find $l -name "*$suffix" \
 	| while read; do
-	name=`realpath --relative-to=$logs $REPLY`
-	o_path=$ROOT/summary/`dirname $name`/`basename --suffix=$suffix $name`
-	for f in $ROOT/prompts/user-flows/*; do
-	    o_name=`basename $f`.json.gz
-	    cat <<EOF
+	output=$ROOT/summary/`realpath --relative-to=$logs $REPLY`
+	o_path=`dirname $output`
+	cat <<EOF
 mkdir --parents $o_path && \
     python $ROOT/log-chat.py \
 	   --log-file $REPLY \
-	   --user-flow $f \
-	   --system-prompt $s_prompt \
-	| gzip --to-stdout > $o_path/$o_name
+	   --system-prompt $prompts/system \
+	   --user-prompt $prompts/user \
+	| gzip --to-stdout > ${output}.gz
 EOF
-	done
     done
 done | parallel --will-cite --line-buffer --delay 30 --retries 5
