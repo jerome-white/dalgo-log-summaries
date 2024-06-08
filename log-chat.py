@@ -121,33 +121,35 @@ def interact(flow):
         for line in fp:
             yield line.strip()
 
-if __name__ == '__main__':
-    arguments = ArgumentParser()
-    arguments.add_argument('--model', default='gpt-4o')
-    arguments.add_argument('--retries', default=5)
-    arguments.add_argument('--log-file', type=Path)
-    arguments.add_argument('--user-flow', type=Path)
-    arguments.add_argument('--system-prompt', type=Path)
-    args = arguments.parse_args()
-
-    Logger.info(args.log_file)
-
-    interaction = []
+def chat(args):
     instructions = args.system_prompt.read_text()
     with FileAssistant(args.log_file,
                        instructions,
                        args.model,
                        args.retries) as fa:
-        for (i, line) in enumerate(interact(args.user_flow)):
-            Logger.info(
-                '%s: %s%s',
-                i,
-                line[:60],
-                '...' if len(line) > 60 else '',
-            )
+        for (i, line) in enumerate(interact(args.user_prompt)):
+            Logger.info('%s: %s', i, line)
             response = fa.query(line)
-            interaction.append({
+            yield {
                 'prompt': line,
-                'response': str(response),
-            })
-    print(json.dumps(interaction, indent=2))
+                'response': response,
+            }
+
+if __name__ == '__main__':
+    arguments = ArgumentParser()
+    arguments.add_argument('--model', default='gpt-4o')
+    arguments.add_argument('--retries', default=5)
+    arguments.add_argument('--log-file', type=Path)
+    arguments.add_argument('--user-prompt', type=Path)
+    arguments.add_argument('--system-prompt', type=Path)
+    args = arguments.parse_args()
+
+    Logger.info(args.log_file)
+    result = {
+        'log': args.log_file,
+        'model': args.model,
+        'instructions': args.system_prompt.read_text(),
+        'dialogue': list(chat(args)),
+    }
+
+    print(json.dumps(result, indent=2, cls=ChatEncoder))
