@@ -3,7 +3,9 @@ import time
 import json
 from pathlib import Path
 from argparse import ArgumentParser
+from dataclasses import dataclass, asdict
 
+import pandas as pd
 from openai import OpenAI
 
 from mylib import Logger
@@ -20,6 +22,9 @@ class AssistantMessage:
     def __str__(self):
         return '\n\n'.join(self)
 
+    def to_string(self):
+        return str(self)
+
 class FileAssistant:
     _tools = [{
         'type': 'file_search',
@@ -30,9 +35,10 @@ class FileAssistant:
         if err.code == 'rate_limit_exceeded':
             for i in err.message.split('. '):
                 if i.startswith('Please try again in'):
-                    (*_, seconds) = i.split()
-                    assert seconds.endswith('s')
-                    return float(seconds[:-1])
+                    (*_, wait) = i.split()
+                    return (pd
+                            .to_timedelta(wait)
+                            .total_seconds())
 
         raise TypeError(err.code)
 
@@ -99,38 +105,44 @@ class FileAssistant:
 #
 #
 #
+@dataclass
+class ChatResponse:
+    prompt: str
+    response: str
+
 def interact(flow):
     with flow.open() as fp:
         for line in fp:
             yield line.strip()
+
+def chat(args):
+    instructions = args.system_prompt.read_text()
+    with FileAssistant(args.log_file,
+                       instructions,
+                       args.model,
+                       args.retries) as fa:
+        for (i, prompt) in enumerate(interact(args.user_prompt)):
+            Logger.info('%s: %s', i, prompt)
+            response = (fa
+                        .query(prompt)
+                        .to_string())
+            yield ChatResponse(prompt, response)
 
 if __name__ == '__main__':
     arguments = ArgumentParser()
     arguments.add_argument('--model', default='gpt-4o')
     arguments.add_argument('--retries', default=5)
     arguments.add_argument('--log-file', type=Path)
-    arguments.add_argument('--user-flow', type=Path)
+    arguments.add_argument('--user-prompt', type=Path)
     arguments.add_argument('--system-prompt', type=Path)
     args = arguments.parse_args()
 
     Logger.info(args.log_file)
+    result = {
+        'log': str(args.log_file),
+        'model': args.model,
+        'instructions': args.system_prompt.read_text(),
+        'dialogue': list(map(asdict, chat(args))),
+    }
 
-    interaction = []
-    instructions = args.system_prompt.read_text()
-    with FileAssistant(args.log_file,
-                       instructions,
-                       args.model,
-                       args.retries) as fa:
-        for (i, line) in enumerate(interact(args.user_flow)):
-            Logger.info(
-                '%s: %s%s',
-                i,
-                line[:60],
-                '...' if len(line) > 60 else '',
-            )
-            response = fa.query(line)
-            interaction.append({
-                'prompt': line,
-                'response': str(response),
-            })
-    print(json.dumps(interaction, indent=2))
+    print(json.dumps(result, indent=2))

@@ -1,3 +1,4 @@
 flask
 flask-httpauth
+pandas
 openai
