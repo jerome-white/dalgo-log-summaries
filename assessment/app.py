@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 import flask as fl
 import pandas as pd
+import markdown
 from flask_httpauth import HTTPBasicAuth
 
 from mylib import Logger
@@ -35,11 +36,9 @@ def to_html(text):
 
     return text
 
-#
-#
-#
-class JudgementDropdown:
-    _options = {
+@ft.cache
+def dropdown(name):
+    options = {
         '': 'Select an option',
         1: 'Incorrect',
         2: 'Decent',
@@ -47,79 +46,49 @@ class JudgementDropdown:
         4: 'Unsure',
     }
 
-    @ft.cached_property
-    def options(self):
-        return '\n'.join(self)
+    opts = []
+    for (k, v) in options.items():
+        extra = '' if k else ' selected disabled hidden'
+        opts.append(f'<option value="{k}"{extra}>{v}</option>')
 
-    def __iter__(self):
-        for (k, v) in self._options.items():
-            extra = '' if k else ' selected disabled hidden'
-            yield f'<option value="{k}"{extra}>{v}</option>'
+    return '\n'.join([
+        f'<select name="{name}">',
+        *opts,
+        '</select>',
+    ])
 
-    def to_html(self, index):
-        return f'<select name="s_{index}">{self.options}</select><br>'
+def responses(data):
+    drop = dropdown(data['log'])
+    prompt = 'prompt'
 
-#
-#
-#
-@dataclass
-class DalgoLog:
-    root: Path
-    name: Path
+    for i in data['dialogue']:
+        response = markdown.markdown(i['response'])
+        yield {
+            prompt: i[prompt],
+            'response': response,
+            'judgement': drop,
+        }
 
-    def __str__(self):
-        return str(self.name)
+@ft.cache
+def summaries(path):
+    return list(path.rglob('*.json.gz'))
 
-    def load(self):
-        # text = (self
-        #         .root
-        #         .joinpath(self.name)
-        #         .read_text())
-        # return to_html(text)
-        df = pd.read_json(self.root.joinpath(self.name))
-        return df.to_markdown()
+def load(summary):
+    with gzip.open(summary, 'r') as fp:
+        data = fp.read().decode('utf-8')
 
-#
-#
-#
-@dataclass
-class Interaction:
-    prompt: str
-    response: str
-    judgement: str
+    return json.loads(data)
 
-@dataclass
-class Response:
-    path: Path
+def environ():
+    keys = (
+        'logs',
+        'summaries',
+        'storage',
+    )
 
-    def __iter__(self):
-        with gzip.open(self.path, 'r') as fp:
-            data = fp.read().decode('utf-8')
-
-        dropdown = JudgementDropdown()
-        for (i, value) in enumerate(json.loads(data)):
-            yield Interaction(
-                value['prompt'],
-                to_html(value['response']),
-                dropdown.to_html(i),
-            )
-
-class ResponsePicker:
-    @ft.cached_property
-    def logs(self):
-        return list(self)
-
-    def __init__(self, path):
-        self.path = path
-
-    def __str__(self):
-        return str(self.path)
-
-    def __iter__(self):
-        yield from map(Response, self.path.rglob('*.json.gz'))
-
-    def pick(self):
-        return random.choice(self.logs)
+    for i in keys:
+        value = os.getenv('DALGO_{}'.format(i.upper()))
+        yield (i, Path(value))
 
 #
 #
@@ -136,26 +105,16 @@ def verify_password(username, password):
 @app.route('/')
 @auth.login_required
 def index():
-    (d_logs, d_summaries) = (
-        Path(os.getenv(x)) for x in ('DALGO_LOGS', 'DALGO_SUMMARIES')
-    )
-
-    picker = ResponsePicker(d_summaries)
-    Logger.info(picker)
-    response = picker.pick()
-    log_name = (response
-                .path
-                .parent
-                .relative_to(d_summaries)
-                .with_suffix('.json'))
-
-    log = DalgoLog(d_logs, log_name)
-    # response = PromptResponse(summary, log)
+    dalgo_vars = dict(environ())
+    summary_data = load(random.choice(summaries(dalgo_vars['summaries'])))
+    event = Path(summary_data['log']).relative_to(dalgo_vars['storage'])
+    log_data = dalgo_vars['logs'].joinpath(event)
 
     return fl.render_template(
         'base.html',
-        log=log,
-        response=response,
+        name=event,
+        log=pd.read_json(log_data).to_html(),
+        responses=responses(summary_data),
     )
 
 if __name__ == '__main__':

@@ -1,46 +1,38 @@
 <style>
+  body {
+      font-family: sans-serif;
+  }
   td {
       vertical-align: text-top;
   }
-  iframe.log {
-      background-color: ivory;
+  .dataframe {
+      width: 40%;
+      font-size: 80%;
   }
   th.prompt {
+      background-color: salmon;
+  }
+  td.judgement {
+      text-align: center;
       background-color: whitesmoke;
   }
 </style>
 
-<script src="https://cdn.jsdelivr.net/npm/@webcomponents/webcomponentsjs@2/webcomponents-loader.min.js"></script>
-<script type="module" src="https://cdn.jsdelivr.net/gh/zerodevx/zero-md@1/src/zero-md.min.js"></script>
-
 <table>
+  <tr><th colspan="2">{{ name }}</th></tr>
   <tr>
-    <td width="50%">
-      <table><tr><td>
-      <zero-md>
-	<script type="text/markdown">
-	  {{ log.load() }}
-	</script>
-      </zero-md>
-      </td></tr></table>
-    </td>
     <td>
+      {{ log|safe }}
+    </td>
+    <td width="60%">
       <table cellpadding="10" class="canvas">
 	<form>
-	  <input type="hidden" name="log" value="{{ path }}">'
-	  <!-- <tr> -->
-	  <!--   <th>Prompt/Response</th> -->
-	  <!--   <th>Judgement</th> -->
-	  <!-- </tr> -->
-
-	  {% for i in response %}
-	  <tr colspan="2"><th class="prompt">{{ i.prompt }}</th></tr>
-	  <tr>
-	    <td>{{ i.response|safe }}</td>
-	    <td>{{ i.judgement|safe }}</td>
-	  </tr>
+	  <input type="hidden" name="log" value="{{ name }}">
+	  {% for i in responses %}
+	  <tr><th class="prompt">{{ i['prompt'] }}</th></tr>
+	  <tr><td>{{ i['response']|safe }}</td></tr>
+	  <tr><td class="judgement">{{ i['judgement']|safe }}</td></tr>
 	  {% endfor %}
-
 	  <tr><td colspan="2"><input type="submit"></td></tr>
 	</form>
       </table>
