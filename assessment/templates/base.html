@@ -1,8 +1,5 @@
 <style>
-  table.canvas {
-      margin: 0px auto;
-  }
-  th {
+  td {
       vertical-align: text-top;
   }
   iframe.log {
@@ -13,25 +10,34 @@
   }
 </style>
 
-<table cellpadding="10" width="70%" class="canvas">
+<script src="https://cdn.jsdelivr.net/npm/@webcomponents/webcomponentsjs@2/webcomponents-loader.min.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/zerodevx/zero-md@1/src/zero-md.min.js"></script>
+
+<table>
   <tr>
-    <td><iframe srcdoc="{{ log.load() }}" class="log"></iframe></td>
+    <td width="50%">
+      <table><tr><td>
+      <zero-md>
+	<script type="text/markdown">
+	  {{ log.load() }}
+	</script>
+      </zero-md>
+      </td></tr></table>
+    </td>
     <td>
       <table cellpadding="10" class="canvas">
 	<form>
 	  <input type="hidden" name="log" value="{{ path }}">'
-	  <tr>
-	    <th>Prompt/Response</th>
-	    <th>Judgement</th>
-	  </tr>
+	  <!-- <tr> -->
+	  <!--   <th>Prompt/Response</th> -->
+	  <!--   <th>Judgement</th> -->
+	  <!-- </tr> -->
 
 	  {% for i in response %}
+	  <tr colspan="2"><th class="prompt">{{ i.prompt }}</th></tr>
 	  <tr>
-	    <th class="prompt">{{ i.prompt }}</th>
-	    <td rowspan="2">{{ i.response }}</td>
-	  </tr>
-	  <tr>
-	    <td rowspan="2">{{ i.judgement }}</td>
+	    <td>{{ i.response|safe }}</td>
+	    <td>{{ i.judgement|safe }}</td>
 	  </tr>
 	  {% endfor %}
 

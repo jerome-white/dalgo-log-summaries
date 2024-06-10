@@ -10,7 +10,10 @@ from dataclasses import dataclass
 # from tempfile import NamedTemporaryFile
 
 import flask as fl
+import pandas as pd
 from flask_httpauth import HTTPBasicAuth
+
+from mylib import Logger
 
 app = fl.Flask(__name__)
 auth = HTTPBasicAuth()
@@ -53,8 +56,8 @@ class JudgementDropdown:
             extra = '' if k else ' selected disabled hidden'
             yield f'<option value="{k}"{extra}>{v}</option>'
 
-    def to_html(self, name):
-        return f'<select name="s_{name}">{self.options}</select><br>'
+    def to_html(self, index):
+        return f'<select name="s_{index}">{self.options}</select><br>'
 
 #
 #
@@ -68,11 +71,13 @@ class DalgoLog:
         return str(self.name)
 
     def load(self):
-        text = (self
-                .root
-                .joinpath(self.name)
-                .read_text())
-        return to_html(text)
+        # text = (self
+        #         .root
+        #         .joinpath(self.name)
+        #         .read_text())
+        # return to_html(text)
+        df = pd.read_json(self.root.joinpath(self.name))
+        return df.to_markdown()
 
 #
 #
@@ -92,10 +97,10 @@ class Response:
             data = fp.read().decode('utf-8')
 
         dropdown = JudgementDropdown()
-        for i in json.loads(data):
+        for (i, value) in enumerate(json.loads(data)):
             yield Interaction(
-                i['prompt'],
-                to_html(i['response']),
+                value['prompt'],
+                to_html(value['response']),
                 dropdown.to_html(i),
             )
 
@@ -106,6 +111,9 @@ class ResponsePicker:
 
     def __init__(self, path):
         self.path = path
+
+    def __str__(self):
+        return str(self.path)
 
     def __iter__(self):
         yield from map(Response, self.path.rglob('*.json.gz'))
@@ -133,6 +141,7 @@ def index():
     )
 
     picker = ResponsePicker(d_summaries)
+    Logger.info(picker)
     response = picker.pick()
     log_name = (response
                 .path
