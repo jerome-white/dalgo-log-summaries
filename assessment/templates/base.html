@@ -28,6 +28,7 @@
       <table cellpadding="10" class="canvas">
 	<form>
 	  <input type="hidden" name="log" value="{{ name }}">
+	  <input type="hidden" name="summary" value="{{ summary }}">
 	  {% for i in responses %}
 	  <tr><th class="prompt">{{ i['prompt'] }}</th></tr>
 	  <tr><td>{{ i['response']|safe }}</td></tr>
