@@ -1,144 +1,132 @@
 import os
 import csv
-import string
+import gzip
+import json
 import random
-import itertools as it
 import functools as ft
 from pathlib import Path
+from datetime import datetime
 from tempfile import NamedTemporaryFile
 
+import markdown
 import flask as fl
+import pandas as pd
 from flask_httpauth import HTTPBasicAuth
+
+# from mylib import Logger
 
 app = fl.Flask(__name__)
 auth = HTTPBasicAuth()
 
 @ft.cache
-def whitespacing():
-    ws = {
-        ' ': ' ',
-        '\t': '&nbsp;' * 5,
-    }
-    for i in string.whitespace:
-        ws.setdefault(i, '<br>')
-
-    return ws
-
-def to_html(path):
-    text = path.read_text()
-    for i in whitespacing().items():
-        text = text.replace(*i)
-
-    return text
-
-#
-#
-#
-class JudgementDropdown:
-    _options = {
+def dropdown(prompt):
+    opts = []
+    options = {
         '': 'Select an option',
-        1: 'Incorrect',
+	1: 'Incorrect',
         2: 'Decent',
         3: 'Correct',
         4: 'Unsure',
     }
 
-    @ft.cache_property
-    def options(self):
-        return '\n'.join(self)
+    for (k, v) in options.items():
+        extra = '' if k else ' selected disabled hidden'
+        opts.append(f'<option value="{v.lower()}"{extra}>{v}</option>')
 
-    def __iter__(self):
-        for (k, v) in self._options.items():
-            extra = '' if k else ' selected disabled hidden'
-            yield f'<option value="{k}"{extra}>{v}</option>'
+    return '\n'.join([
+        f'<select name="s_{prompt}">',
+        *opts,
+        '</select>',
+    ])
 
-    def to_html(self, name):
-        return f'<select name="s_{name}">{self.options}</select><br>'
+def responses(data):
+    p_key = 'prompt'
 
-#
-#
-#
-@dataclass
-class DalgoLog:
-    root: Path
-    name: Path
+    for (i, d) in enumerate(data['dialogue']):
+        prompt = d[p_key]
+        response = markdown.markdown(d['response'])
+        yield {
+            p_key: prompt,
+            'response': response,
+            'judgement': dropdown(i),
+        }
 
-    def __str__(self):
-        return str(self.name)
+@ft.cache
+def summaries(path):
+    return list(path.rglob('*.json.gz'))
 
-    def load(self):
-        path = self.root.joinpath(self.name)
-        return to_html(path.read_text())
+def load(summary):
+    with gzip.open(summary, 'r') as fp:
+        data = fp.read().decode('utf-8')
 
-#
-#
-#
-@dataclass
-class Interaction:
-    prompt: str
-    response: str
-    judgement: str
+    return json.loads(data)
 
-@dataclass
-class Response:
-    path: Path
+def environ():
+    keys = (
+        'logs',
+        'output',
+        'storage',
+        'summaries',
+    )
 
-    def __iter__(self):
-        with gzip.open(self.path, 'r') as fp:
-            data = fp.read().decode('utf-8')
+    for i in keys:
+        value = os.getenv('DALGO_{}'.format(i.upper()))
+        yield (i, Path(value))
 
-        dropdown = JudgementDropdown()
-        for i json.loads(data):
-            yield Interaction(
-                i['prompt'],
-                to_html(i['response']),
-                dropdown.to_html(i),
-            )
+def q_args(q_string):
+    data = load(q_string['summary']).get('dialogue')
+    static = {
+        'date': datetime.now().strftime('%c'),
+        'log': q_string['log'],
+    }
 
-class ResponsePicker:
-    @ft.cached_property
-    def logs(self):
-        return list(self)
-
-    def __init__(self, path):
-        self.path = path
-
-    def __iter__(self):
-        yield from map(ResponseSummary, self.path.rglob('*.json.gz'))
-
-    def pick(self):
-        return random.choice(self.logs)
+    for (k, v) in q_string.items():
+        if k.startswith('s_'):
+            (_, key) = k.split('_')
+            prompt = data[int(key)]['prompt']
+            yield dict(static, prompt=prompt, judgement=v)
 
 #
 #
 #
 @auth.verify_password
 def verify_password(username, password):
-    auth = (
+    params = (
         ('username', username),
         ('password', password),
     )
 
-    return all(os.getenv(f'DALGO_{x.upper()}') == y for (x, y) in auth)
+    return all(os.getenv(f'DALGO_{x.upper()}') == y for (x, y) in params)
 
 @app.route('/')
 @auth.login_required
 def index():
-    (d_logs, d_summaries) = (
-        Path(os.getenv(x)) for x in ('DALGO_LOGS', 'DALGO_SUMMARIES')
-    )
+    dalgo_vars = dict(environ())
 
-    picker = ResponsePicker(d_summaries)
-    response = picker.pick()
-    log_name = response.path.relative_to(d_summaries)
+    summary_file = random.choice(summaries(dalgo_vars['summaries']))
+    summary_data = load(summary_file)
+    event = Path(summary_data['log']).relative_to(dalgo_vars['storage'])
+    log_data = dalgo_vars['logs'].joinpath(event)
 
-    log = DalgoLog(d_logs, log_name)
-    response = PromptResponse(summary, log)
+    if fl.request.args:
+        writer = None
+        with NamedTemporaryFile(mode='w',
+                                suffix='.csv',
+                                prefix='',
+                                dir=dalgo_vars['output'],
+                                delete=False) as fp:
+            for i in q_args(fl.request.args):
+                if writer is None:
+                    writer = csv.DictWriter(fp, fieldnames=i)
+                    writer.writeheader()
+                writer.writerow(i)
 
     return fl.render_template(
         'base.html',
-        log=log,
-        response=response,
+        name=event,
+        summary=summary_file,
+        log=pd.read_json(log_data).to_html(),
+        responses=responses(summary_data),
     )
 
 if __name__ == '__main__':
