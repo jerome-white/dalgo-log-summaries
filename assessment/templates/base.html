@@ -34,7 +34,12 @@
 	  <tr><td>{{ i['response']|safe }}</td></tr>
 	  <tr><td class="judgement">{{ i['judgement']|safe }}</td></tr>
 	  {% endfor %}
-	  <tr><td colspan="2"><input type="submit"></td></tr>
+	  <tr>
+	    <td>
+	      <input type="reset">
+	      <input type="submit">
+	    </td>
+	  </tr>
 	</form>
       </table>
     </td>
