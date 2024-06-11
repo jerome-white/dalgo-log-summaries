@@ -33,7 +33,13 @@
 	  <input type="hidden" name="summary" value="{{ summary }}">
 	  {% for i in responses %}
 	  <tr><th class="prompt">{{ i['prompt'] }}</th></tr>
-	  <tr><td>{{ i['response']|safe }}</td></tr>
+	  <tr><td>
+	      {% if i['response'] %}
+	      {{ i['response']|safe }}
+	      {% else %}
+	      <i>No response from the LLM</i>
+	      {% endif %}
+	  </td></tr>
 	  <tr><td class="judgement">{{ i['judgement']|safe }}</td></tr>
 	  <tr><td><hr></td></tr>
 	  {% endfor %}
