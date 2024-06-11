@@ -73,18 +73,35 @@ def environ():
         value = os.getenv('DALGO_{}'.format(i.upper()))
         yield (i, Path(value))
 
-def q_args(q_string):
+def extract(q_string, date):
+    log = q_string['log']
     data = load(q_string['summary']).get('dialogue')
-    static = {
-        'date': datetime.now().strftime('%c'),
-        'log': q_string['log'],
-    }
 
-    for (k, v) in q_string.items():
-        if k.startswith('s_'):
-            (_, key) = k.split('_')
-            prompt = data[int(key)]['prompt']
-            yield dict(static, prompt=prompt, judgement=v)
+    for (k, judgement) in q_string.items():
+        if k.startswith('s_'): # see the dropdown function
+            (_, index) = k.split('_')
+            prompt = data[int(index)]['prompt']
+            yield {
+                'date': date,
+                'log': log,
+                'prompt': prompt,
+                'judgement': judgement,
+            }
+
+def record(data, destination):
+    date = datetime.now().strftime('%c')
+    writer = None
+
+    with NamedTemporaryFile(mode='w',
+                            suffix='.csv',
+                            prefix='',
+                            dir=destination,
+                            delete=False) as fp:
+        for row in q_args(data):
+            if writer is None:
+                writer = csv.DictWriter(fp, fieldnames=row)
+                writer.writeheader()
+            writer.writerow(row)
 
 #
 #
@@ -109,17 +126,7 @@ def index():
     log_data = dalgo_vars['logs'].joinpath(event)
 
     if fl.request.args:
-        writer = None
-        with NamedTemporaryFile(mode='w',
-                                suffix='.csv',
-                                prefix='',
-                                dir=dalgo_vars['output'],
-                                delete=False) as fp:
-            for i in q_args(fl.request.args):
-                if writer is None:
-                    writer = csv.DictWriter(fp, fieldnames=i)
-                    writer.writeheader()
-                writer.writerow(i)
+        record(fl.request.args, dalgo_vars['output'])
 
     return fl.render_template(
         'base.html',
