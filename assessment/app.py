@@ -2,6 +2,7 @@ import os
 import csv
 import gzip
 import json
+import uuid
 import random
 import functools as ft
 from pathlib import Path
@@ -71,19 +72,17 @@ def environ():
         yield (i, Path(value))
 
 def extract(q_string, date):
-    log = q_string['log']
+    static = {
+        'date': date,
+    }
+    static.update((x, q_string[x]) for x in ('uid', 'log'))
     data = load(q_string['summary']).get('dialogue')
 
     for (k, judgement) in q_string.items():
         if k.startswith('p_'): # see the dropdown function
             (_, index) = k.split('_')
             prompt = data[int(index)]['prompt']
-            yield {
-                'date': date,
-                'log': log,
-                'prompt': prompt,
-                'judgement': judgement,
-            }
+            yield dict(static, prompt=prompt, judgement=judgement)
 
 def record(data, destination):
     date = datetime.now().strftime('%c')
@@ -122,12 +121,14 @@ def index():
     summary_data = load(summary_file)
     event = Path(summary_data['log']).relative_to(dalgo_vars['storage'])
     log_data = dalgo_vars['logs'].joinpath(event)
+    uid = uuid.uuid4()
 
     if fl.request.args:
         record(fl.request.args, dalgo_vars['output'])
 
     return fl.render_template(
         'base.html',
+        uid=str(uid),
         name=event,
         summary=summary_file,
         log=pd.read_json(log_data).to_html(),
