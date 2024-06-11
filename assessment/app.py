@@ -1,5 +1,4 @@
 import os
-import csv
 import gzip
 import json
 import uuid
@@ -71,34 +70,31 @@ def environ():
         value = os.getenv('DALGO_{}'.format(i.upper()))
         yield (i, Path(value))
 
-def extract(q_string, date):
-    static = {
-        'date': date,
-    }
-    static.update((x, q_string[x]) for x in ('uid', 'log'))
+def extract(q_string):
     data = load(q_string['summary']).get('dialogue')
-
     for (k, judgement) in q_string.items():
         if k.startswith('p_'): # see the dropdown function
             (_, index) = k.split('_')
             prompt = data[int(index)]['prompt']
-            yield dict(static, prompt=prompt, judgement=judgement)
+            yield {
+                'prompt': prompt,
+                'judgement': judgement,
+            }
 
 def record(data, destination):
-    date = datetime.now().strftime('%c')
-    writer = None
+    submission = {
+        'date': datetime.now().strftime('%c'),
+        'annotations': list(extract(data)),
+    }
+    submission.update((x, data[x]) for x in ('uid', 'log'))
 
     destination.mkdir(parents=True, exist_ok=True)
     with NamedTemporaryFile(mode='w',
-                            suffix='.csv',
+                            suffix='.json',
                             prefix='',
                             dir=destination,
                             delete=False) as fp:
-        for row in extract(data, date):
-            if writer is None:
-                writer = csv.DictWriter(fp, fieldnames=row)
-                writer.writeheader()
-            writer.writerow(row)
+        print(json.dumps(submission, indent=2), file=fp)
 
 #
 #
