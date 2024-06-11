@@ -89,6 +89,7 @@ def record(data, destination):
     date = datetime.now().strftime('%c')
     writer = None
 
+    destination.mkdir(parents=True, exist_ok=True)
     with NamedTemporaryFile(mode='w',
                             suffix='.csv',
                             prefix='',
