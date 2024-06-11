@@ -20,24 +20,21 @@ auth = HTTPBasicAuth()
 
 @ft.cache
 def dropdown(prompt):
-    opts = []
-    options = {
-        '': 'Select an option',
-	1: 'Incorrect',
-        2: 'Decent',
-        3: 'Correct',
-        4: 'Unsure',
-    }
+    html = []
+    options = (
+	'incorrect',
+        'decent',
+        'correct',
+        'unsure',
+    )
 
-    for (k, v) in options.items():
-        extra = '' if k else ' selected disabled hidden'
-        opts.append(f'<option value="{v.lower()}"{extra}>{v}</option>')
+    for i in options:
+        html.append(f'''
+        <input type="radio" id="html" name="p_{prompt}" value="{i}">
+        <label for="{i}">{i.capitalize()}</label>
+        ''')
 
-    return '\n'.join([
-        f'<select name="s_{prompt}">',
-        *opts,
-        '</select>',
-    ])
+    return '&nbsp;'.join(html)
 
 def responses(data):
     p_key = 'prompt'
@@ -78,7 +75,7 @@ def extract(q_string, date):
     data = load(q_string['summary']).get('dialogue')
 
     for (k, judgement) in q_string.items():
-        if k.startswith('s_'): # see the dropdown function
+        if k.startswith('p_'): # see the dropdown function
             (_, index) = k.split('_')
             prompt = data[int(index)]['prompt']
             yield {
@@ -97,7 +94,7 @@ def record(data, destination):
                             prefix='',
                             dir=destination,
                             delete=False) as fp:
-        for row in q_args(data):
+        for row in extract(data, date):
             if writer is None:
                 writer = csv.DictWriter(fp, fieldnames=row)
                 writer.writeheader()
