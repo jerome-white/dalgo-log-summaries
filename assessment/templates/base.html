@@ -5,6 +5,9 @@
   td {
       vertical-align: text-top;
   }
+  tr.button {
+      text-align: center;
+  }
   .dataframe {
       width: 40%;
       font-size: 80%;
@@ -43,7 +46,7 @@
 	  <tr><td class="judgement">{{ i['judgement']|safe }}</td></tr>
 	  <tr><td><hr></td></tr>
 	  {% endfor %}
-	  <tr>
+	  <tr class="button">
 	    <td>
 	      <input type="reset">
 	      <input type="submit">
