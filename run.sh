@@ -23,14 +23,14 @@ find $_logs -name "*${_suffix}" \
 	continue
     fi
     o_path=`dirname $output`
-    python $ROOT/log2prompt.py \
+    python $ROOT/src/log2prompt.py \
 	   --log $lname \
 	   --substitutions $_prompts/system.json \
 	   --system-prompt $_prompts/system.txt > $s_prompt \
 	|| continue
     cat <<EOF
 mkdir --parents $o_path && \
-    python $ROOT/log-chat.py \
+    python $ROOT/src/log-chat.py \
 	   --log-file $REPLY \
 	   --system-prompt $s_prompt \
 	   --user-prompt $_prompts/user.txt \
