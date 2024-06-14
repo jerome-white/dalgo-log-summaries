@@ -50,12 +50,12 @@ class PrefectNameParser(LogNameParser):
 #
 class ResultEncoder(json.JSONEncoder):
     @ft.singledispatchmethod
-    def default(self, obj):
-        return super().default(obj)
+    def default(self, o):
+        return super().default(o)
 
     @default.register
-    def _(self, obj: Path):
-        return str(obj)
+    def _(self, o: Path):
+        return str(o)
 
 #
 #
