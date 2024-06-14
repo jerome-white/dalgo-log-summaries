@@ -8,22 +8,33 @@ export PYTHONLOGLEVEL=info
 source $HOME/.keys/open-ai.rc || exit 1
 source $ROOT/venv/bin/activate
 
-logs=$HOME/etc/dalgo/logs
-suffix=.json
+_logs=$HOME/etc/dalgo/logs
+_suffix=.json
+_prompts=$ROOT/prompts
+_output=$ROOT/summary
 
-for l in $logs/*; do
-    prompts=$ROOT/prompts/`basename $l`
-    find $l -name "*$suffix" \
-	| while read; do
-	output=$ROOT/summary/`realpath --relative-to=$logs $REPLY`
-	o_path=`dirname $output`
-	cat <<EOF
+prompts=`mktemp --directory`
+find $_logs -name "*${_suffix}" \
+    | while read; do
+    s_prompt=`mktemp --tmpdir=$prompts`
+    lname=`realpath --relative-to=$_logs $REPLY`
+    output=$_output/${lname}.gz
+    if [ -e $output ]; then
+	continue
+    fi
+    o_path=`dirname $output`
+    python $ROOT/log2prompt.py \
+	   --log $lname \
+	   --substitutions $_prompts/system.json \
+	   --system-prompt $_prompts/system.txt > $s_prompt \
+	|| continue
+    cat <<EOF
 mkdir --parents $o_path && \
     python $ROOT/log-chat.py \
 	   --log-file $REPLY \
-	   --system-prompt $prompts/system \
-	   --user-prompt $prompts/user \
-	| gzip --to-stdout > ${output}.gz
+	   --system-prompt $s_prompt \
+	   --user-prompt $_prompts/user.txt \
+	| gzip --to-stdout > $output
 EOF
-    done
 done | parallel --will-cite --line-buffer --delay 30 --retries 5
+rm --recursive --force $prompts
