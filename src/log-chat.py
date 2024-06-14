@@ -1,3 +1,4 @@
+import sys
 import math
 import time
 import json
@@ -106,22 +107,27 @@ class FileAssistant:
 #
 #
 @dataclass
+class Instruction:
+    system: str
+    user: list
+
+    def __str__(self):
+        return self.system
+
+    def __iter__(self):
+        yield from self.user
+
+@dataclass
 class ChatResponse:
     prompt: str
     response: str
 
-def interact(flow):
-    with flow.open() as fp:
-        for line in fp:
-            yield line.strip()
-
-def chat(args):
-    instructions = args.system_prompt.read_text()
+def chat(instruction, args):
     with FileAssistant(args.log_file,
-                       instructions,
+                       str(instruction),
                        args.model,
                        args.retries) as fa:
-        for (i, prompt) in enumerate(interact(args.user_prompt)):
+        for (i, prompt) in enumerate(instruction):
             Logger.info('%s: %s', i, prompt)
             response = (fa
                         .query(prompt)
@@ -133,16 +139,19 @@ if __name__ == '__main__':
     arguments.add_argument('--model', default='gpt-4o')
     arguments.add_argument('--retries', default=5)
     arguments.add_argument('--log-file', type=Path)
-    arguments.add_argument('--user-prompt', type=Path)
-    arguments.add_argument('--system-prompt', type=Path)
     args = arguments.parse_args()
 
     Logger.info(args.log_file)
+
+    kwargs = json.load(sys.stdin)
+    instruction = Instruction(**kwargs)
+
+    dialogue = chat(instruction, args)
     result = {
         'log': str(args.log_file),
         'model': args.model,
-        'instructions': args.system_prompt.read_text(),
-        'dialogue': list(map(asdict, chat(args))),
+        'instructions': str(instruction),
+        'dialogue': list(map(asdict, dialogue)),
     }
 
     print(json.dumps(result, indent=2))
