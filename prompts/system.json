@@ -1,0 +1,9 @@
+{
+  "airbyte": "the Airbyte ETL platform",
+  "prefect": "a dbt transformation workflow",
+  "dbt-deps": "running the dbt deps command",
+  "dbt-clean": "running the dbt clean command",
+  "dbt-test": "running the dbt test command",
+  "dbt-run": "a dbt run",
+  "dbt-docs-generate": "generating dbt docs"
+}
