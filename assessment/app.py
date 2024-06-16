@@ -62,7 +62,7 @@ def environ():
     keys = (
         'logs',
         'output',
-        'storage',
+        # 'storage',
         'summaries',
     )
 
@@ -115,7 +115,7 @@ def index():
 
     summary_file = random.choice(summaries(dalgo_vars['summaries']))
     summary_data = load(summary_file)
-    event = Path(summary_data['log']).relative_to(dalgo_vars['storage'])
+    event = Path(summary_data['log']).relative_to(dalgo_vars['logs'])
     log_data = dalgo_vars['logs'].joinpath(event)
     uid = uuid.uuid4()
 
