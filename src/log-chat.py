@@ -91,6 +91,8 @@ class FileAssistant:
             rest = math.ceil(self.parse_wait_time(run.last_error))
             Logger.warning('Sleeping %ds', rest)
             time.sleep(rest)
+        else:
+            raise TimeoutError('Message retries exceeded')
 
         messages = self.client.beta.threads.messages.list(
             thread_id=self.thread.id,
