@@ -12,19 +12,49 @@ from openai import OpenAI
 from mylib import Logger
 
 class AssistantMessage:
-    def __init__(self, message):
-        self.message = message
+    _ctypes = (
+        'file_citation',
+        'file_path',
+    )
 
-    def __iter__(self):
-        for m in self.message:
+    def __init__(self, client):
+        self.client = client
+
+    def __getitem__(self, item):
+        for c in self._ctypes:
+            if hasattr(item, c):
+                citation = getattr(item, c)
+                reference = self.client.files.retrieve(citation.file_id)
+                return reference.filename
+
+        raise LookupError()
+
+    def __call__(self, message):
+        citations = {}
+
+        for m in message:
             for c in m.content:
-                yield c.text.value
+                body = c.text.value
 
-    def __str__(self):
-        return '\n\n'.join(self)
+                for a in c.text.annotations:
+                    try:
+                        document = self[a]
+                    except LookupError:
+                        continue
+                    refn = citations.setdefault(document, len(citations) + 1)
+                    body = body.replace(a.text, f' [{refn}]')
 
-    def to_string(self):
-        return str(self)
+                if citations:
+                    iterable = (f'[{y}] {x}' for (x, y) in citations.items())
+                    citestr = '\n\n{}'.format('\n'.join(iterable))
+                    citations.clear()
+                else:
+                    citestr = ''
+
+                yield f'{body}{citestr}'
+
+    def to_string(self, message):
+        return '\n'.join(self(message))
 
 class FileAssistant:
     _tools = [{
@@ -44,8 +74,10 @@ class FileAssistant:
         raise TypeError(err.code)
 
     def __init__(self, log_file, instructions, model, retries):
-        self.client = OpenAI()
         self.retries = retries
+
+        self.client = OpenAI()
+        self.parser = AssistantMessage(self.client)
 
         with log_file.open('rb') as fp:
             self.document = self.client.files.create(
@@ -103,7 +135,7 @@ class FileAssistant:
             thread_id=self.thread.id,
         )
 
-        return AssistantMessage(messages)
+        return self.parser.to_string(messages)
 
 #
 #
@@ -131,9 +163,7 @@ def chat(instruction, args):
                        args.retries) as fa:
         for (i, prompt) in enumerate(instruction):
             Logger.info('%s: %s', i, prompt)
-            response = (fa
-                        .query(prompt)
-                        .to_string())
+            response = fa.query(prompt)
             yield ChatResponse(prompt, response)
 
 if __name__ == '__main__':
