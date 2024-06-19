@@ -1,2 +1,2 @@
 Summarize the primary error that occurred in this run
-What steps can I take to solve the error you identified?
+I want to solve this error. Provide corrective actions that I can take that are specific to the error you identified
