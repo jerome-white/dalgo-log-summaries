@@ -30,23 +30,31 @@ class AssistantMessage:
         raise LookupError()
 
     def __call__(self, message):
-        citations = {}
+        refn = 1
+        citations = []
 
         for m in message:
             for c in m.content:
                 body = c.text.value
 
                 for a in c.text.annotations:
-                    try:
-                        document = self[a]
-                    except LookupError:
-                        continue
-                    refn = citations.setdefault(document, len(citations) + 1)
-                    body = body.replace(a.text, f' [{refn}]')
+                    reference = f'[{refn}]'
+                    body = body.replace(a.text, f' {reference}')
+                    document = (self
+                                .client
+                                .files
+                                .retrieve(a.file_citation.file_id)
+                                .filename)
+                    citations.append('{} {}:{}--{}'.format(
+                        reference,
+                        document,
+                        a.start_index,
+                        a.end_index,
+                    ))
+                    refn += 1
 
                 if citations:
-                    iterable = (f'[{y}] {x}' for (x, y) in citations.items())
-                    citestr = '\n\n{}'.format('\n'.join(iterable))
+                    citestr = '\n\n{}'.format('\n'.join(citations))
                     citations.clear()
                 else:
                     citestr = ''
