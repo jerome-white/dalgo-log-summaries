@@ -14,21 +14,21 @@ from mylib import Logger
 
 class CitationManager:
     def __init__(self, annotations, client, start=1):
-        self.start = start
         self.body = {}
         self.citations = []
 
-        for a in annotations:
-            reference = f'[{start}]'
+        for (i, a) in enumerate(annotations, start):
+            reference = f'[{i}]'
             self.body[a.text] = reference
+
             document = client.files.retrieve(a.file_citation.file_id)
-            self.citations.append('{} {}:{}--{}'.format(
+            citation = '{} {}:{}--{}'.format(
                 reference,
                 document.filename,
                 a.start_index,
                 a.end_index,
-            ))
-            start += 1
+            )
+            self.citations.append(citation)
 
     def __len__(self):
         return len(self.citations)
