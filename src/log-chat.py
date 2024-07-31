@@ -68,14 +68,11 @@ class AssistantMessage:
         self.client = client
         self.citation = citation
 
-    def __call__(self, message, citations=None):
+    def __call__(self, message):
         refn = 1
-        if citations is None:
-            citations = NoCitations
-
         for m in message:
             for c in m.content:
-                cite = citations(c.text.annotations, self.client, refn)
+                cite = self.citation(c.text.annotations, self.client, refn)
                 body = cite.replace(c.text.value)
 
                 yield f'{body}{cite}'
@@ -102,11 +99,18 @@ class FileAssistant:
 
         raise TypeError(err.code)
 
-    def __init__(self, log_file, instructions, model, retries):
+    def __init__(
+            self,
+            client,
+            parser,
+            log_file,
+            instructions,
+            model,
+            retries,
+    ):
+        self.client = client
+        self.parser = parser
         self.retries = retries
-
-        self.client = OpenAI()
-        self.parser = AssistantMessage(self.client)
 
         with log_file.open('rb') as fp:
             self.document = self.client.files.create(
@@ -187,10 +191,12 @@ class ChatResponse:
 
 def chat(instruction, args):
     client = OpenAI()
-    citations = NumericCitations if args.with_citation else
-    message = AssistantMessage(client, )
+    citations = NumericCitations if args.with_citations else NoCitations
+    parser = AssistantMessage(client, citations)
 
-    with FileAssistant(args.log_file,
+    with FileAssistant(client,
+                       parser,
+                       args.log_file,
                        str(instruction),
                        args.model,
                        args.retries) as fa:
