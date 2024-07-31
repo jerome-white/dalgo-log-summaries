@@ -2,6 +2,7 @@ import sys
 import math
 import time
 import json
+import itertools as it
 from pathlib import Path
 from argparse import ArgumentParser
 from dataclasses import dataclass, asdict
@@ -11,55 +12,72 @@ from openai import OpenAI
 
 from mylib import Logger
 
+class CitationManager:
+    def __init__(self, annotations, client, start=1):
+        self.start = start
+        self.body = {}
+        self.citations = []
+
+        for a in annotations:
+            reference = f'[{start}]'
+            self.body[a.text] = reference
+            document = client.files.retrieve(a.file_citation.file_id)
+            self.citations.append('{} {}:{}--{}'.format(
+                reference,
+                document.filename,
+                a.start_index,
+                a.end_index,
+            ))
+            start += 1
+
+    def __len__(self):
+        return len(self.citations)
+
+    def __str__(self):
+        raise NotImplementedError()
+
+    def __iter__(self):
+        raise NotImplementedError()
+
+    def replace(self, body):
+        for i in self:
+            body = body.replace(*i)
+
+        return body
+
+class NumericCitations(CitationManager):
+    def __str__(self):
+        return '\n\n{}'.format('\n'.join(self.citations))
+
+    def __iter__(self):
+        for (k, v) in self.body.items():
+            yield (k, f' {v}')
+
+class NoCitations(CitationManager):
+    def __str__(self):
+        return ''
+
+    def __iter__(self):
+        yield from zip(self.body, it.repeat(''))
+
+#
+#
+#
 class AssistantMessage:
-    _ctypes = (
-        'file_citation',
-        'file_path',
-    )
-
-    def __init__(self, client):
+    def __init__(self, client, citation):
         self.client = client
-
-    def __getitem__(self, item):
-        for c in self._ctypes:
-            if hasattr(item, c):
-                citation = getattr(item, c)
-                reference = self.client.files.retrieve(citation.file_id)
-                return reference.filename
-
-        raise LookupError()
+        self.citation = citation
 
     def __call__(self, message):
         refn = 1
-        citations = []
-
         for m in message:
             for c in m.content:
-                body = c.text.value
+                cite = self.citation(c.text.annotations, self.client, refn)
+                body = cite.replace(c.text.value)
 
-                for a in c.text.annotations:
-                    reference = f'[{refn}]'
-                    body = body.replace(a.text, f' {reference}')
-                    document = (self
-                                .client
-                                .files
-                                .retrieve(a.file_citation.file_id)
-                                .filename)
-                    citations.append('{} {}:{}--{}'.format(
-                        reference,
-                        document,
-                        a.start_index,
-                        a.end_index,
-                    ))
-                    refn += 1
+                yield f'{body}{cite}'
 
-                if citations:
-                    citestr = '\n\n{}'.format('\n'.join(citations))
-                    citations.clear()
-                else:
-                    citestr = ''
-
-                yield f'{body}{citestr}'
+                refn = len(cite) + 1
 
     def to_string(self, message):
         return '\n'.join(self(message))
@@ -81,11 +99,18 @@ class FileAssistant:
 
         raise TypeError(err.code)
 
-    def __init__(self, log_file, instructions, model, retries):
+    def __init__(
+            self,
+            client,
+            parser,
+            log_file,
+            instructions,
+            model,
+            retries,
+    ):
+        self.client = client
+        self.parser = parser
         self.retries = retries
-
-        self.client = OpenAI()
-        self.parser = AssistantMessage(self.client)
 
         with log_file.open('rb') as fp:
             self.document = self.client.files.create(
@@ -165,7 +190,13 @@ class ChatResponse:
     response: str
 
 def chat(instruction, args):
-    with FileAssistant(args.log_file,
+    client = OpenAI()
+    citations = NumericCitations if args.with_citations else NoCitations
+    parser = AssistantMessage(client, citations)
+
+    with FileAssistant(client,
+                       parser,
+                       args.log_file,
                        str(instruction),
                        args.model,
                        args.retries) as fa:
@@ -179,6 +210,7 @@ if __name__ == '__main__':
     arguments.add_argument('--model', default='gpt-4o')
     arguments.add_argument('--retries', default=5)
     arguments.add_argument('--log-file', type=Path)
+    arguments.add_argument('--with-citations', action='store_true')
     args = arguments.parse_args()
 
     Logger.info(args.log_file)
